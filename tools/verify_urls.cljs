@@ -1,0 +1,83 @@
+;; tools/verify_urls.cljs -- fetch every url in the catalog and report the status.
+;;
+;; The whole value of this repo is that its citations point at pages that exist.
+;; Nothing in the offline suite can tell a live citation from a dead one: both
+;; are strings starting with "http", and `every? #(str/starts-with? % "http")`
+;; passes on a url that has 404'd for a year. This is the check that can tell
+;; them apart, and it is deliberately NOT in the test suite -- a suite that
+;; needs the network fails for reasons that have nothing to do with the change
+;; under test.
+;;
+;; Run:  nbb tools/verify_urls.cljs
+;;
+;; Exit codes are THREE, because "every url answered 2xx" and "no url could be
+;; reached" must not return the same value:
+;;
+;;   0  every distinct url answered 2xx
+;;   1  at least one url answered something else -- a finding, with the status
+;;   2  REFUSED: the catalog was empty, or some url could not be measured at all
+;;      (DNS, TLS, timeout). An unmeasured url is not a passing url.
+(ns verify-urls
+  (:require [clojure.edn :as edn]
+            [kotoba.lang.text :as str]
+            ["fs" :as fs]))
+
+(def ^:private timeout-ms 30000)
+
+(def entries (edn/read-string (fs/readFileSync "data/datascript-tx.edn" "utf8")))
+
+;; Distinct, because eleven entries read off one page are one page to fetch --
+;; and because hammering a source eleven times to learn one fact is rude.
+(def urls (vec (distinct (keep :association-rule/url entries))))
+
+(defn- ids-for [u]
+  (str/join ", " (map :association-rule/id (filter #(= u (:association-rule/url %)) entries))))
+
+(defn- probe [u]
+  (let [ctl (js/AbortController.)
+        timer (js/setTimeout #(.abort ctl) timeout-ms)]
+    (-> (js/fetch u #js {:redirect "follow" :signal (.-signal ctl)})
+        (.then (fn [r]
+                 (js/clearTimeout timer)
+                 {:url u :status (.-status r) :final (.-url r)
+                  :ok (and (>= (.-status r) 200) (< (.-status r) 300))}))
+        (.catch (fn [e]
+                  (js/clearTimeout timer)
+                  ;; keep the message. A transport failure recorded as a bare
+                  ;; "not ok" is a status code thrown away at the one moment it
+                  ;; was the only thing that could explain the result.
+                  {:url u :unmeasured (or (some-> e .-message) (str e))})))))
+
+(defn- report [results]
+  (let [bad (filterv #(and (:status %) (not (:ok %))) results)
+        unmeasured (filterv :unmeasured results)]
+    (doseq [r results]
+      (println (cond (:ok r) (str "  ok   " (:status r))
+                     (:status r) (str "  FAIL " (:status r))
+                     :else "  ????     ")
+               (:url r)
+               (if (and (:final r) (not= (:final r) (:url r))) (str "-> " (:final r)) "")))
+    (println)
+    (println (str "SCANNED\t" (count results)))
+    (doseq [r bad] (println "FAIL" (:status r) (:url r) "--" (ids-for (:url r))))
+    (doseq [r unmeasured] (println "UNMEASURED" (:url r) "--" (:unmeasured r)))
+    (cond
+      (zero? (count results))
+      (do (println "REFUSED: the catalog carries no url, so there was nothing to verify"
+                   "-- reporting a pass here would mean an empty catalog is a verified one")
+          2)
+      (seq unmeasured)
+      (do (println (str "REFUSED: " (count unmeasured) " url(s) could not be measured."
+                        " Not a pass and not a finding -- run it again with a network."))
+          2)
+      (seq bad)
+      (do (println (str (count bad) " url(s) did not answer 2xx")) 1)
+      :else
+      (do (println (str "all " (count results) " distinct url(s) answered 2xx"
+                        " across " (count entries) " catalog entries"))
+          0))))
+
+(println (str "verifying " (count urls) " distinct url(s) from "
+              (count entries) " catalog entries"))
+(-> (js/Promise.all (clj->js (map probe urls)))
+    (.then (fn [rs] (js/process.exit (report (js->clj rs :keywordize-keys true))))))
