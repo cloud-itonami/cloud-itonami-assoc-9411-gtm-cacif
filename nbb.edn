@@ -1,0 +1,8 @@
+;; nbb reads this file. It does NOT read deps.edn or bb.edn, and
+;; tools/gen_kotoba.cljs is run as a bare `nbb tools/gen_kotoba.cljs`, so the
+;; kotoba.lang.text coordinate declared only in deps.edn is invisible to it --
+;; a coordinate the runner cannot see is not a declaration (ADR-2609093000).
+;;
+;; :paths and the sha below are COPIED from deps.edn, not chosen here.
+{:paths ["src"]
+ :deps {io.github.kotoba-lang/text {:git/sha "73bdb13ae7a3d004b44bca08be03a3191157a38f"}}}
