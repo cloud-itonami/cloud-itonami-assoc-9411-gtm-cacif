@@ -65,7 +65,7 @@ kept out of the test suite so the suite does not fail for reasons
 unrelated to the change under test:
 
 ```bash
-nbb tools/verify_urls.cljs     # 0 = all 2xx, 1 = a dead url, 2 = REFUSED
+kbb --backend sci tools/verify_urls.cljk     # 0 = all 2xx, 1 = a dead url, 2 = REFUSED
 ```
 
 Exit **2** is the point of it: an empty catalog, or a url that could not
@@ -90,7 +90,7 @@ fabricate one.
   `com-junkawasaki/root`'s `scripts/compliance-fact-query.cljs`).
 - `src/association_facts.kotoba` — **generated** by `tools/gen_kotoba.cljs` from
   the `.edn`; reaches the Kotoba oracle, wasm and both native ISAs. Do not edit
-  by hand, regenerate: `nbb tools/gen_kotoba.cljs`.
+  by hand, regenerate: `kbb --backend sci tools/gen_kotoba.cljk`.
 - `schema/association-rule.edn` — DataScript schema.
 
 `test/association_facts_kotoba_parity_test.clj` compares every field of every

@@ -8,7 +8,7 @@
 ;; needs the network fails for reasons that have nothing to do with the change
 ;; under test.
 ;;
-;; Run:  nbb tools/verify_urls.cljs
+;; Run:  kbb --backend sci tools/verify_urls.cljk
 ;;
 ;; Exit codes are THREE, because "every url answered 2xx" and "no url could be
 ;; reached" must not return the same value:

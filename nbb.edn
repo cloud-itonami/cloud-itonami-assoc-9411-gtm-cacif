@@ -1,5 +1,5 @@
 ;; nbb reads this file. It does NOT read deps.edn or bb.edn, and
-;; tools/gen_kotoba.cljs is run as a bare `nbb tools/gen_kotoba.cljs`, so the
+;; tools/gen_kotoba.cljs is run as a bare `kbb --backend sci tools/gen_kotoba.cljk`, so the
 ;; kotoba.lang.text coordinate declared only in deps.edn is invisible to it --
 ;; a coordinate the runner cannot see is not a declaration (ADR-2609093000).
 ;;
